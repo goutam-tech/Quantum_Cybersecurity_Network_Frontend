@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Doughnut, Bar, Line } from 'react-chartjs-2';
 import { api } from '../api';
 
@@ -22,53 +22,60 @@ export function Dashboard() {
     <div className="page active">
       <div className="stat-grid">
         <div className="stat-card">
-          <div className="card-glow-line"></div>
-          <div className="stat-icon" style={{ background: 'rgba(30,75,255,0.12)' }}>🌐</div>
           <div className="stat-label">Nodes Analyzed</div>
-          <div className="stat-value blue">{dashboardData?.stats?.nodesAnalyzed?.toLocaleString() || '-'}</div>
-          <div className="stat-delta"><span className="delta-up">↑ {dashboardData?.stats?.nodesDelta || '0'}%</span> vs last scan</div>
+          <div className="stat-value">{dashboardData?.stats?.nodesAnalyzed?.toLocaleString() || '-'}</div>
+          <div style={{ marginTop: '8px', fontSize: '12px', color: '#10b981', fontWeight: 600 }}>
+            ↑ {dashboardData?.stats?.nodesDelta || '0'}% <span style={{ color: '#94a3b8', fontWeight: 400 }}>since last week</span>
+          </div>
         </div>
         <div className="stat-card">
-          <div className="card-glow-line"></div>
-          <div className="stat-icon" style={{ background: 'rgba(239,68,68,0.12)' }}>⚠</div>
           <div className="stat-label">Threats Detected</div>
-          <div className="stat-value attack">{dashboardData?.stats?.threatsDetected?.toLocaleString() || '-'}</div>
-          <div className="stat-delta"><span className="delta-up">↑ {dashboardData?.stats?.threatsDelta || '0'}%</span> high severity</div>
+          <div className="stat-value" style={{ color: 'var(--attack)' }}>{dashboardData?.stats?.threatsDetected?.toLocaleString() || '-'}</div>
+          <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444', fontWeight: 600 }}>
+            ↑ {dashboardData?.stats?.threatsDelta || '0'}% <span style={{ color: '#94a3b8', fontWeight: 400 }}>high priority</span>
+          </div>
         </div>
         <div className="stat-card">
-          <div className="card-glow-line"></div>
-          <div className="stat-icon" style={{ background: 'rgba(245,158,11,0.12)' }}>📋</div>
           <div className="stat-label">Total Logs</div>
-          <div className="stat-value suspicious">{dashboardData?.stats?.totalLogs?.toLocaleString() || '-'}</div>
-          <div className="stat-delta"><span className="delta-down">↓ {dashboardData?.stats?.logsDelta || '0'}%</span> normalized</div>
+          <div className="stat-value">{dashboardData?.stats?.totalLogs?.toLocaleString() || '-'}</div>
+          <div style={{ marginTop: '8px', fontSize: '12px', color: '#10b981', fontWeight: 600 }}>
+            ↑ {dashboardData?.stats?.logsDelta || '0'}% <span style={{ color: '#94a3b8', fontWeight: 400 }}>normalized logs</span>
+          </div>
         </div>
         <div className="stat-card">
-          <div className="card-glow-line"></div>
-          <div className="stat-icon" style={{ background: 'rgba(239,68,68,0.08)' }}>💀</div>
           <div className="stat-label">Attack Count</div>
-          <div className="stat-value attack">{dashboardData?.stats?.attackCount?.toLocaleString() || '-'}</div>
-          <div className="stat-delta"><span className="delta-up">↑ {dashboardData?.stats?.attackDelta || '0'}%</span> detected today</div>
+          <div className="stat-value" style={{ color: 'var(--attack)' }}>{dashboardData?.stats?.attackCount?.toLocaleString() || '-'}</div>
+          <div style={{ marginTop: '8px', fontSize: '12px', color: '#ef4444', fontWeight: 600 }}>
+            ↑ {dashboardData?.stats?.attackDelta || '0'}% <span style={{ color: '#94a3b8', fontWeight: 400 }}>detected today</span>
+          </div>
         </div>
       </div>
 
-      <div className="grid-3-1">
+      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px', marginBottom: '24px' }}>
         <div className="card">
-          <div className="card-glow-line"></div>
-          <div className="scan-line"></div>
-          <div className="card-header">
-            <div className="card-title">Results Analysis</div>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <div className="filter-tabs" style={{ margin: 0 }}>
-                {['all', 'attack', 'suspicious', 'normal'].map(filter => (
-                  <button key={filter} className={`filter-tab ${currentFilter === filter ? 'active' : ''}`} onClick={() => setCurrentFilter(filter)}>
-                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                  </button>
-                ))}
-              </div>
-              <div className="card-badge">LIVE</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 700 }}>Results Analysis</h3>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {['all', 'attack', 'suspicious'].map(f => (
+                <button 
+                  key={f}
+                  onClick={() => setCurrentFilter(f)}
+                  style={{ 
+                    padding: '6px 12px', 
+                    borderRadius: '6px', 
+                    border: '1px solid #e2e8f0', 
+                    background: currentFilter === f ? '#f1f5f9' : '#fff',
+                    fontSize: '12px',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </button>
+              ))}
             </div>
           </div>
-          <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: '350px' }}>
+          <div className="table-container" id="results-scroll-container">
             <table className="results-table">
               <thead>
                 <tr>
@@ -79,34 +86,62 @@ export function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {(dashboardData?.results || []).filter((r: any) => currentFilter === 'all' || r.level === currentFilter).map((r: any, idx: number) => {
-                  const pct = Math.round(r.confidence * 100);
-                  const color = r.level === 'attack' ? '#ef4444' : r.level === 'suspicious' ? '#f59e0b' : '#22c55e';
-                  return (
-                    <tr key={idx}>
-                      <td className="ip-cell">{r.ip}</td>
-                      <td><span className={`badge ${r.level}`}><span className="badge-dot"></span>{r.level.toUpperCase()}</span></td>
-                      <td>
-                        <div className="progress-wrap">
-                          <div className="progress-bar"><div className="progress-fill" style={{ width: `${pct}%`, background: color }}></div></div>
-                          <span className="progress-val">{pct}%</span>
+                {(dashboardData?.results || []).filter((r: any) => currentFilter === 'all' || r.level === currentFilter).map((r: any, idx: number) => (
+                  <tr key={idx}>
+                    <td style={{ fontWeight: 600, fontFamily: 'monospace' }}>{r.ip}</td>
+                    <td>
+                      <span style={{ 
+                        padding: '4px 8px', 
+                        borderRadius: '6px', 
+                        fontSize: '11px', 
+                        fontWeight: 700,
+                        background: r.level === 'attack' ? '#fef2f2' : r.level === 'suspicious' ? '#fffbeb' : '#f0fdf4',
+                        color: r.level === 'attack' ? '#ef4444' : r.level === 'suspicious' ? '#f59e0b' : '#10b981',
+                        textTransform: 'uppercase'
+                      }}>
+                        {r.level}
+                      </span>
+                    </td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ flex: 1, height: '6px', background: '#f1f5f9', borderRadius: '3px', overflow: 'hidden' }}>
+                          <div style={{ width: `${r.confidence * 100}%`, height: '100%', background: 'var(--primary)' }}></div>
                         </div>
-                      </td>
-                      <td style={{ fontSize: '11px', color: 'var(--text3)', fontFamily: "'JetBrains Mono', monospace" }}>{r.ts}</td>
-                    </tr>
-                  );
-                })}
+                        <span style={{ fontSize: '12px', fontWeight: 600 }}>{Math.round(r.confidence * 100)}%</span>
+                      </div>
+                    </td>
+                    <td style={{ color: '#64748b', fontSize: '12px' }}>{r.ts}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
+          </div>
+          <div style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
+            <button 
+              onClick={() => {
+                const container = document.getElementById('results-scroll-container');
+                if (container) container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' });
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--primary)',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              Scroll to bottom ↓
+            </button>
           </div>
         </div>
 
         <div className="card">
-          <div className="card-glow-line"></div>
-          <div className="card-header">
-            <div className="card-title">Threat Distribution</div>
-          </div>
-          <div className="chart-wrap" style={{ height: '200px', position: 'relative', marginBottom: '16px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px' }}>Threat Distribution</h3>
+          <div style={{ height: '220px', position: 'relative' }}>
             {dashboardData?.threatDistribution && (
               <Doughnut
                 data={{
@@ -117,63 +152,57 @@ export function Dashboard() {
                       dashboardData.threatDistribution.suspicious,
                       dashboardData.threatDistribution.normal
                     ],
-                    backgroundColor: ['rgba(239,68,68,0.8)', 'rgba(245,158,11,0.8)', 'rgba(34,197,94,0.8)'],
-                    borderColor: ['rgba(239,68,68,0.3)', 'rgba(245,158,11,0.3)', 'rgba(34,197,94,0.3)'],
-                    borderWidth: 1, hoverOffset: 4
+                    backgroundColor: ['#ef4444', '#f59e0b', '#10b981'],
+                    borderWidth: 0,
+                    hoverOffset: 4
                   }]
                 }}
                 options={{
                   responsive: true, maintainAspectRatio: false,
-                  cutout: '72%',
-                  plugins: { legend: { display: false } },
-                  animation: { animateRotate: true, duration: 1000 }
+                  cutout: '75%',
+                  plugins: { legend: { display: false } }
                 }}
               />
             )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+          <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
             {[
-              { label: 'Attack', count: dashboardData?.threatDistribution?.attack || 0, color: 'var(--attack)' },
-              { label: 'Suspicious', count: dashboardData?.threatDistribution?.suspicious || 0, color: 'var(--suspicious)' },
-              { label: 'Normal', count: dashboardData?.threatDistribution?.normal || 0, color: 'var(--normal)' }
+              { label: 'Attack', count: dashboardData?.threatDistribution?.attack || 0, color: '#ef4444' },
+              { label: 'Suspicious', count: dashboardData?.threatDistribution?.suspicious || 0, color: '#f59e0b' },
+              { label: 'Normal', count: dashboardData?.threatDistribution?.normal || 0, color: '#10b981' }
             ].map(t => (
               <div key={t.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text2)' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: t.color, boxShadow: `0 0 6px ${t.color}` }}></div>{t.label}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: t.color }}></div>
+                  {t.label}
                 </div>
-                <div style={{ fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", color: t.color }}>{t.count.toLocaleString()}</div>
+                <div style={{ fontWeight: 700 }}>{t.count.toLocaleString()}</div>
               </div>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="grid-2">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
         <div className="card">
-          <div className="card-glow-line"></div>
-          <div className="card-header">
-            <div className="card-title">Quantum Walk — Top Anomalous IPs</div>
-            <div className="card-badge">QW-ALGO</div>
-          </div>
-          <div className="quantum-label">Anomaly amplitude by node</div>
-          <div className="chart-wrap" style={{ height: '200px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px' }}>Quantum Walk Scores</h3>
+          <div style={{ height: '200px' }}>
             {dashboardData?.quantumWalk && (
               <Bar
                 data={{
-                  labels: dashboardData.quantumWalk.ips,
+                  labels: dashboardData.quantumWalk.ips.map((ip: string) => ip.split('.').slice(-2).join('.')),
                   datasets: [{
                     data: dashboardData.quantumWalk.vals,
-                    backgroundColor: dashboardData.quantumWalk.vals.map((v: number) => v > 0.85 ? 'rgba(239,68,68,0.7)' : v > 0.7 ? 'rgba(245,158,11,0.7)' : 'rgba(30,75,255,0.6)'),
-                    borderColor: dashboardData.quantumWalk.vals.map((v: number) => v > 0.85 ? '#ef4444' : v > 0.7 ? '#f59e0b' : '#1e4bff'),
-                    borderWidth: 1, borderRadius: 4,
+                    backgroundColor: '#6366f1',
+                    borderRadius: 4,
                   }]
                 }}
                 options={{
                   responsive: true, maintainAspectRatio: false,
                   plugins: { legend: { display: false } },
                   scales: {
-                    x: { ticks: { color: '#64748b', font: { size: 9, family: "'JetBrains Mono'" } }, grid: { color: 'rgba(99,160,255,0.05)' } },
-                    y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(99,160,255,0.07)' }, max: 1, min: 0 }
+                    x: { grid: { display: false } },
+                    y: { grid: { color: '#f1f5f9' }, max: 1 }
                   }
                 }}
               />
@@ -181,31 +210,26 @@ export function Dashboard() {
           </div>
         </div>
         <div className="card">
-          <div className="card-glow-line"></div>
-          <div className="card-header">
-            <div className="card-title">QFT Periodicity</div>
-            <div className="card-badge">FREQ DOMAIN</div>
-          </div>
-          <div className="quantum-label">Fourier transform of traffic patterns</div>
-          <div className="chart-wrap" style={{ height: '200px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px' }}>Traffic Periodicity</h3>
+          <div style={{ height: '200px' }}>
             {dashboardData?.qft && (
               <Line
                 data={{
                   labels: dashboardData.qft.freqs,
                   datasets: [{
                     data: dashboardData.qft.amps,
-                    borderColor: '#00c6ff',
-                    backgroundColor: 'rgba(0,198,255,0.06)',
+                    borderColor: '#8b5cf6',
+                    backgroundColor: 'rgba(139, 92, 246, 0.05)',
                     fill: true, tension: 0.4,
-                    pointRadius: 3, borderWidth: 2,
+                    pointRadius: 0, borderWidth: 2,
                   }]
                 }}
                 options={{
                   responsive: true, maintainAspectRatio: false,
                   plugins: { legend: { display: false } },
                   scales: {
-                    x: { ticks: { color: '#64748b', font: { size: 9 }, maxTicksLimit: 8 }, grid: { color: 'rgba(99,160,255,0.05)' } },
-                    y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(99,160,255,0.07)' } }
+                    x: { grid: { display: false }, ticks: { maxTicksLimit: 8 } },
+                    y: { grid: { color: '#f1f5f9' } }
                   }
                 }}
               />
@@ -216,3 +240,4 @@ export function Dashboard() {
     </div>
   );
 }
+
