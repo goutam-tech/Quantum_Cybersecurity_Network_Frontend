@@ -163,11 +163,11 @@ export const api = {
     if (!res.ok) throw new Error(res.status === 401 ? 'Session expired' : 'Failed to fetch threats');
     return res.json();
   },
-  getHealth: async () => {
-    const res = await request(`${API_BASE}/health`);
-    if (!res.ok) throw new Error('Failed to fetch health');
-    return res.json();
-  },
+  // getHealth: async () => {
+  //   const res = await request(`${API_BASE}/health`);
+  //   if (!res.ok) throw new Error('Failed to fetch health');
+  //   return res.json();
+  // },
   uploadFile: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);

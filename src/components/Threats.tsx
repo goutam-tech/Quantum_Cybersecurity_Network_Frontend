@@ -13,36 +13,26 @@ export function Threats() {
         setError(null);
         const data = await api.getThreats();
         
-        let results = [];
+        let processedResults: any[] = [];
         let counts = { attack: 0, suspicious: 0, normal: 0 };
         let timeline = { hours: [], attacks: [], suspicious: [] };
 
         if (Array.isArray(data)) {
-          results = data;
-        } else if (data && Array.isArray(data.records)) {
-          results = data.records;
-          if (data.counts) counts = { ...counts, ...data.counts };
-          if (data.timeline) timeline = { ...timeline, ...data.timeline };
-        } else if (data && Array.isArray(data.results)) {
-          results = data.results;
-          if (data.counts) counts = { ...counts, ...data.counts };
-          if (data.timeline) timeline = { ...timeline, ...data.timeline };
-        } else if (data && Array.isArray(data.threats)) {
-          results = data.threats;
-        }
-
-        const processedResults = (results || []).map((r: any) => ({
-          ip: r.ipAddress || r.ip || '0.0.0.0',
-          level: (r.threatLevel || r.level || 'normal').toLowerCase(),
-          confidence: r.confidence || 0
-        }));
-
-        // Recalculate counts if they are all zero or missing
-        if (counts.attack === 0 && counts.suspicious === 0 && counts.normal === 0) {
-          processedResults.forEach((r: any) => {
-            if (r.level === 'attack') counts.attack++;
-            else if (r.level === 'suspicious') counts.suspicious++;
-            else counts.normal++;
+          data.forEach((item: any) => {
+            const level = (item.threatLevel || 'normal').toLowerCase();
+            const levelKey = level === 'attack' ? 'attack' : level === 'suspicious' ? 'suspicious' : 'normal';
+            
+            counts[levelKey] = item.count || 0;
+            
+            if (Array.isArray(item.affectedIPs)) {
+              item.affectedIPs.forEach((ip: string) => {
+                processedResults.push({
+                  ip: ip,
+                  level: levelKey,
+                  confidence: 1.0 // Defaulting to 1.0 since it's not in the API yet
+                });
+              });
+            }
           });
         }
 

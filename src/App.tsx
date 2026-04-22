@@ -20,7 +20,7 @@ import { Dashboard } from './components/Dashboard';
 import { Upload } from './components/Upload';
 import { Logs } from './components/Logs';
 import { Threats } from './components/Threats';
-import { Health } from './components/Health';
+// import { Health } from './components/Health';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Login } from './pages/Login';
@@ -79,7 +79,7 @@ function AppContent() {
             {activePage === 'upload' && <Upload onAnalyzeComplete={() => setActivePage('dashboard')} />}
             {activePage === 'logs' && <Logs />}
             {activePage === 'threats' && <Threats />}
-            {activePage === 'health' && <Health />}
+            {/* {activePage === 'health' && <Health />} */}
           </div>
         </main>
       </div>
