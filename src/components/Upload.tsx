@@ -1,145 +1,96 @@
-import React, { useState, DragEvent, ChangeEvent } from 'react';
+import { useState } from 'react';
 import { api } from '../api';
 
-interface UploadProps {
-  onAnalyzeComplete: () => void;
-}
+export function Upload({ onAnalyzeComplete }: { onAnalyzeComplete: () => void }) {
+  const [file, setFile] = useState<File | null>(null);
+  const [status, setStatus] = useState('idle');
+  const [progress, setProgress] = useState(0);
 
-export function Upload({ onAnalyzeComplete }: UploadProps) {
-  const [uploadStatus, setUploadStatus] = useState('IDLE');
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadReady, setUploadReady] = useState(false);
-  const [uploadResult, setUploadResult] = useState('');
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analyzeStep, setAnalyzeStep] = useState('');
-
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.classList.add('dragover');
-  };
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
-    e.currentTarget.classList.remove('dragover');
-  };
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.currentTarget.classList.remove('dragover');
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      processUpload(e.dataTransfer.files[0]);
-    }
-  };
-  const handleFileSelect = (e: ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      processUpload(e.target.files[0]);
-    }
-  };
-
-  const processUpload = async (file: File) => {
-    setUploadStatus('UPLOADING');
-    setUploadProgress(0);
-
-    const progressInterval = setInterval(() => {
-      setUploadProgress(p => Math.min(p + Math.random() * 20, 95));
-    }, 80);
-
+  const handleUpload = async () => {
+    if (!file) return;
+    setStatus('uploading');
     try {
-      const res = await api.uploadFile(file);
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-
-      setUploadStatus('READY');
-      setUploadResult(`✓ ${file.name} · ${(file.size / 1024).toFixed(1)} KB · Verified`);
-      setUploadReady(true);
+      await api.uploadFile(file);
+      setStatus('analyzing');
+      let p = 0;
+      const interval = setInterval(() => {
+        p += 5;
+        setProgress(p);
+        if (p >= 100) {
+          clearInterval(interval);
+          handleAnalyze();
+        }
+      }, 100);
     } catch (e) {
-      clearInterval(progressInterval);
-      setUploadStatus('ERROR');
-      setUploadResult('Upload failed due to network error');
+      setStatus('error');
     }
   };
 
-  const runAnalysis = async () => {
-    if (!uploadReady) return;
-    setIsAnalyzing(true);
-    setAnalyzeStep('Initializing quantum walk simulation...');
-
+  const handleAnalyze = async () => {
     try {
       await api.analyze();
-      setAnalyzeStep('Compiling results...');
-      setTimeout(() => {
-        setIsAnalyzing(false);
-        onAnalyzeComplete();
-      }, 600);
+      setStatus('complete');
+      setTimeout(onAnalyzeComplete, 1500);
     } catch (e) {
-      setIsAnalyzing(false);
-      alert('Analysis failed');
+      setStatus('error');
     }
   };
 
   return (
-    <>
-      {isAnalyzing && (
-        <div className="full-loader show">
-          <div style={{ position: 'relative', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <div className="loader-ring"></div>
-            <div className="loader-ring2"></div>
-            <div style={{ fontSize: '20px' }}>⚛</div>
-          </div>
-          <div className="loader-text">Running Quantum Analysis…</div>
-          <div className="loader-sub">{analyzeStep}</div>
+    <div className="page active">
+      <div className="card" style={{ maxWidth: '600px', margin: '0 auto' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 700, marginBottom: '24px', textAlign: 'center' }}>Upload Network Traffic Data</h3>
+        
+        <div 
+          style={{ 
+            border: '2px dashed #e2e8f0', 
+            borderRadius: '12px', 
+            padding: '48px 24px', 
+            textAlign: 'center',
+            background: '#f8fafc',
+            cursor: 'pointer',
+            transition: 'all 0.2s'
+          }}
+          onClick={() => document.getElementById('file-input')?.click()}
+        >
+          <input 
+            id="file-input"
+            type="file" 
+            style={{ display: 'none' }} 
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+          />
+          <svg style={{ color: '#6366f1', marginBottom: '16px' }} width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" />
+          </svg>
+          <div style={{ fontWeight: 600, color: '#1e293b' }}>{file ? file.name : 'Click to select or drag and drop'}</div>
+          <div style={{ fontSize: '14px', color: '#64748b', marginTop: '4px' }}>Supports CSV, JSON, or PCAP files (Max 50MB)</div>
         </div>
-      )}
 
-      <div className="page active">
-        <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-          <div className="card" style={{ marginBottom: '20px' }}>
-            <div className="card-glow-line"></div>
-            <div className="card-header">
-              <div className="card-title">Step 1 — Upload CSV</div>
-              <div className="card-badge" style={{ color: uploadStatus === 'READY' ? '#22c55e' : uploadStatus === 'UPLOADING' ? '#00c6ff' : 'var(--liquid3)' }}>{uploadStatus}</div>
-            </div>
-            <div className="upload-zone" onClick={() => document.getElementById('fileInput')?.click()}
-              onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
-              <div className="upload-icon">📡</div>
-              <div className="upload-title">Drop your network capture CSV here</div>
-              <div className="upload-sub">or click to browse files</div>
-              <div className="upload-badge">.CSV · .PCAP · .LOG supported</div>
-              <div className="progress-upload" style={{ display: uploadProgress > 0 ? 'block' : 'none' }}>
-                <div className="progress-upload-fill" style={{ width: `${uploadProgress}%` }}></div>
-              </div>
-            </div>
-            <input type="file" id="fileInput" accept=".csv,.log,.pcap" style={{ display: 'none' }} onChange={handleFileSelect} />
-            <div style={{ marginTop: '12px', fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", color: uploadStatus === 'READY' ? '#22c55e' : 'var(--text3)' }}>{uploadResult}</div>
+        {file && status === 'idle' && (
+          <div style={{ marginTop: '24px' }}>
+            <button className="btn-primary btn-block" onClick={handleUpload}>
+              Start Analysis
+            </button>
           </div>
+        )}
 
-          <div className="card" style={{ marginBottom: '20px' }}>
-            <div className="card-glow-line"></div>
-            <div className="card-header">
-              <div className="card-title">Step 2 — Run Analysis</div>
+        {status !== 'idle' && (
+          <div style={{ marginTop: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '14px', fontWeight: 600 }}>
+              <span style={{ color: 'var(--primary)' }}>
+                {status === 'uploading' && 'Uploading File...'}
+                {status === 'analyzing' && 'Quantum Analysis in Progress...'}
+                {status === 'complete' && 'Analysis Complete!'}
+                {status === 'error' && 'Something went wrong'}
+              </span>
+              <span>{progress}%</span>
             </div>
-            <div style={{ fontSize: '13px', color: 'var(--text2)', marginBottom: '16px', lineHeight: 1.6 }}>
-              Initiates the quantum walk anomaly detection pipeline and QFT periodicity analysis against the uploaded dataset.
-            </div>
-            <div className="analyze-section">
-              <button className="btn btn-primary" onClick={runAnalysis} disabled={!uploadReady || isAnalyzing}>
-                <span>⚛</span> Run Quantum Analysis
-              </button>
-              <div className={`analyze-status ${uploadReady ? 'ready' : ''}`}>
-                {uploadReady ? '⚛ Ready to run quantum analysis' : '— Upload a file first'}
-              </div>
+            <div style={{ height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: `${progress}%`, height: '100%', background: 'var(--primary)', transition: 'width 0.2s' }}></div>
             </div>
           </div>
-
-          <div className="card">
-            <div className="card-glow-line"></div>
-            <div className="card-header">
-              <div className="card-title">Step 3 — View Results</div>
-            </div>
-            <div style={{ fontSize: '13px', color: 'var(--text2)', marginBottom: '16px' }}>
-              After analysis completes, results populate the Command Center dashboard automatically.
-            </div>
-            <button className="btn btn-ghost" onClick={onAnalyzeComplete}>→ Go to Dashboard</button>
-          </div>
-        </div>
+        )}
       </div>
-    </>
+    </div>
   );
 }

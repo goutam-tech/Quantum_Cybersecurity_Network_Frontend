@@ -1,11 +1,91 @@
 export const API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
+let authToken = localStorage.getItem('token') || '';
+
+const getHeaders = () => {
+  const headers: any = {
+    'Content-Type': 'application/json',
+  };
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`;
+  }
+  return headers;
+};
+
+const request = async (url: string, options: any = {}) => {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      ...getHeaders(),
+      ...options.headers
+    }
+  });
+
+  if (res.status === 401) {
+    authToken = '';
+    localStorage.removeItem('token');
+    // We don't throw here so that individual components can handle it, 
+    // or we could throw a specific error.
+  }
+
+  return res;
+};
+
 export const api = {
+  auth: {
+    login: async (email: string, password: string) => {
+      const res = await fetch(`${API_BASE}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Email: email, Password: password }),
+      });
+      if (!res.ok) throw new Error('Login failed');
+      const data = await res.json();
+      authToken = data.token || data.Token;
+      localStorage.setItem('token', authToken);
+      return data;
+    },
+    signup: async (username: string, email: string, password: string) => {
+      const res = await fetch(`${API_BASE}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Name: username, Email: email, Password: password }),
+      });
+      if (!res.ok) throw new Error('Signup failed');
+      const data = await res.json();
+      authToken = data.token || data.Token;
+      localStorage.setItem('token', authToken);
+      return data;
+    },
+    revoke: async () => {
+      if (!authToken) return true;
+      const res = await fetch(`${API_BASE}/auth/revoke`, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({ Token: authToken }),
+      });
+      authToken = '';
+      localStorage.removeItem('token');
+      return res.ok;
+    },
+    me: async () => {
+      if (!authToken) return null;
+      const res = await fetch(`${API_BASE}/auth/me`, {
+        headers: getHeaders(),
+      });
+      if (!res.ok) {
+        authToken = '';
+        localStorage.removeItem('token');
+        return null;
+      }
+      return res.json();
+    },
+  },
   getDashboard: async () => {
     const [resResults, resQW, resQft] = await Promise.all([
-      fetch(`${API_BASE}/Results`),
-      fetch(`${API_BASE}/Results/quantum-walk`),
-      fetch(`${API_BASE}/Results/qft?threshold=0.1`)
+      request(`${API_BASE}/Results`),
+      request(`${API_BASE}/Results/quantum-walk`),
+      request(`${API_BASE}/Results/qft?threshold=0.1`)
     ]);
 
     if (!resResults.ok) throw new Error('Failed to fetch dashboard');
@@ -74,33 +154,38 @@ export const api = {
     };
   },
   getLogs: async () => {
-    const res = await fetch(`${API_BASE}/Logs`);
-    if (!res.ok) throw new Error('Failed to fetch logs');
+    const res = await request(`${API_BASE}/Logs`);
+    if (!res.ok) throw new Error(res.status === 401 ? 'Session expired' : 'Failed to fetch logs');
     return res.json();
   },
   getThreats: async () => {
-    const res = await fetch(`${API_BASE}/Threats`);
-    if (!res.ok) throw new Error('Failed to fetch threats');
+    const res = await request(`${API_BASE}/Threats`);
+    if (!res.ok) throw new Error(res.status === 401 ? 'Session expired' : 'Failed to fetch threats');
     return res.json();
   },
-  getHealth: async () => {
-    const res = await fetch(`${API_BASE}/health`);
-    if (!res.ok) throw new Error('Failed to fetch health');
-    return res.json();
-  },
+  // getHealth: async () => {
+  //   const res = await request(`${API_BASE}/health`);
+  //   if (!res.ok) throw new Error('Failed to fetch health');
+  //   return res.json();
+  // },
   uploadFile: async (file: File) => {
     const formData = new FormData();
     formData.append('file', file);
     const res = await fetch(`${API_BASE}/Upload`, {
       method: 'POST',
+      headers: { 'Authorization': `Bearer ${authToken}` },
       body: formData,
     });
     if (!res.ok) throw new Error('Upload failed');
     return res;
   },
   analyze: async () => {
-    const res = await fetch(`${API_BASE}/Analyze`, { method: 'POST' });
+    const res = await fetch(`${API_BASE}/Analyze`, { 
+      method: 'POST',
+      headers: getHeaders()
+    });
     if (!res.ok) throw new Error('Analysis failed');
     return res;
   }
 };
+

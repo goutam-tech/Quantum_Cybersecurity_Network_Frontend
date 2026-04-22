@@ -1,17 +1,48 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Line } from 'react-chartjs-2';
 import { api } from '../api';
 
 export function Threats() {
   const [threatsData, setThreatsData] = useState<any>(null);
   const [drillLevel, setDrillLevel] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setError(null);
         const data = await api.getThreats();
-        setThreatsData(data);
-      } catch (e) {
+        
+        let processedResults: any[] = [];
+        let counts = { attack: 0, suspicious: 0, normal: 0 };
+        let timeline = { hours: [], attacks: [], suspicious: [] };
+
+        if (Array.isArray(data)) {
+          data.forEach((item: any) => {
+            const level = (item.threatLevel || 'normal').toLowerCase();
+            const levelKey = level === 'attack' ? 'attack' : level === 'suspicious' ? 'suspicious' : 'normal';
+            
+            counts[levelKey] = item.count || 0;
+            
+            if (Array.isArray(item.affectedIPs)) {
+              item.affectedIPs.forEach((ip: string) => {
+                processedResults.push({
+                  ip: ip,
+                  level: levelKey,
+                  confidence: 1.0 // Defaulting to 1.0 since it's not in the API yet
+                });
+              });
+            }
+          });
+        }
+
+        setThreatsData({
+          results: processedResults,
+          counts,
+          timeline
+        });
+      } catch (e: any) {
+        setError(e.message || 'Threat intelligence service is offline');
         console.error(e);
       }
     };
@@ -22,78 +53,109 @@ export function Threats() {
 
   return (
     <div className="page active">
-      <div className="grid-2">
-        <div className="card">
-          <div className="card-glow-line"></div>
-          <div className="card-header">
-            <div className="card-title">Threat Drill-Down</div>
-          </div>
-          <div style={{ fontSize: '12px', color: 'var(--text3)', marginBottom: '16px' }}>Click a threat level to view filtered results</div>
-          <button className="threat-chip attack-chip" onClick={() => setDrillLevel('attack')}>
-            <span>💀</span> Attack
-            <span className="chip-count">{threatsData?.counts?.attack || 0}</span>
-          </button>
-          <button className="threat-chip suspicious-chip" onClick={() => setDrillLevel('suspicious')}>
-            <span>⚡</span> Suspicious
-            <span className="chip-count">{threatsData?.counts?.suspicious || 0}</span>
-          </button>
-          <button className="threat-chip" onClick={() => setDrillLevel('normal')}
-            style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)', color: 'var(--normal)' }}>
-            <span>✓</span> Normal
-            <span className="chip-count">{threatsData?.counts?.normal || 0}</span>
-          </button>
-        </div>
-        <div className="card">
-          <div className="card-glow-line"></div>
-          <div className="card-header">
-            <div className="card-title">{drillLevel ? `${drillLevel.charAt(0).toUpperCase() + drillLevel.slice(1)} Threats` : 'Drill-Down Results'}</div>
-            <div className="card-badge" style={{ color: drillLevel === 'attack' ? 'var(--attack)' : drillLevel === 'suspicious' ? 'var(--suspicious)' : drillLevel === 'normal' ? 'var(--normal)' : '' }}>
-              {drillLevel ? `${drillDownData.length} FOUND` : 'SELECT LEVEL'}
+      {error && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fee2e2', color: '#b91c1c', padding: '16px', borderRadius: '12px', marginBottom: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span style={{ fontSize: '20px' }}>⚠️</span>
+            <div>
+              <div style={{ fontWeight: 700 }}>Security Sync Error</div>
+              <div style={{ fontSize: '13px', opacity: 0.8 }}>{error}</div>
             </div>
           </div>
-          <div style={{ fontSize: '13px', color: 'var(--text3)' }}>
-            {drillLevel && drillDownData.length > 0 ? (
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <button onClick={() => window.location.reload()} style={{ background: '#b91c1c', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>Retry</button>
+        </div>
+      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
+        <div className="card">
+          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px' }}>Threat Drill-Down</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {[
+              { id: 'attack', label: 'Attack', count: threatsData?.counts?.attack || 0, color: '#ef4444', icon: '💀' },
+              { id: 'suspicious', label: 'Suspicious', count: threatsData?.counts?.suspicious || 0, color: '#f59e0b', icon: '⚡' },
+              { id: 'normal', label: 'Normal', count: threatsData?.counts?.normal || 0, color: '#10b981', icon: '✓' },
+            ].map(level => (
+              <button
+                key={level.id}
+                onClick={() => setDrillLevel(level.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '12px 16px',
+                  borderRadius: '10px',
+                  border: '1px solid #e2e8f0',
+                  background: drillLevel === level.id ? '#f1f5f9' : '#fff',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{ fontSize: '18px' }}>{level.icon}</span>
+                  <span style={{ fontWeight: 600, color: level.color }}>{level.label}</span>
+                </div>
+                <span style={{ fontWeight: 700, fontSize: '14px' }}>{level.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="card">
+          <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '20px' }}>
+            {drillLevel ? `${drillLevel.charAt(0).toUpperCase() + drillLevel.slice(1)} Details` : 'Select a Category'}
+          </h3>
+          <div className="table-container" style={{ maxHeight: '250px' }}>
+            {drillLevel ? (
+              <table className="results-table">
                 <tbody>
                   {drillDownData.map((r: any, i: number) => (
-                    <tr key={i} style={{ borderBottom: '1px solid rgba(99,160,255,0.06)' }}>
-                      <td style={{ padding: '8px 4px', fontFamily: "'JetBrains Mono', monospace", fontSize: '12px', color: 'var(--liquid3)' }}>{r.ip}</td>
-                      <td style={{ padding: '8px 4px', fontSize: '12px', color: drillLevel === 'attack' ? 'var(--attack)' : drillLevel === 'suspicious' ? 'var(--suspicious)' : 'var(--normal)' }}>
+                    <tr key={i}>
+                      <td style={{ fontWeight: 600, fontFamily: 'monospace', fontSize: '13px' }}>{r.ip}</td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: drillLevel === 'attack' ? '#ef4444' : drillLevel === 'suspicious' ? '#f59e0b' : '#10b981' }}>
                         {(r.confidence * 100).toFixed(0)}%
                       </td>
-                      <td style={{ padding: '8px 4px', fontSize: '11px', color: 'var(--text3)' }}>{r.ts}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             ) : (
-              <div>{drillLevel ? 'No entries for this level.' : 'Select a threat level to explore.'}</div>
+              <div style={{ textAlign: 'center', color: '#64748b', padding: '40px 0' }}>Select a level to see specific nodes</div>
             )}
           </div>
         </div>
       </div>
-      <div className="card" style={{ marginTop: '20px' }}>
-        <div className="card-glow-line"></div>
-        <div className="card-header">
-          <div className="card-title">Threat Timeline</div>
-          <div className="card-badge">24H VIEW</div>
-        </div>
-        <div className="chart-wrap" style={{ height: '220px' }}>
+
+      <div className="card">
+        <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '24px' }}>Threat Timeline (24h)</h3>
+        <div style={{ height: '250px' }}>
           {threatsData?.timeline && (
             <Line
               data={{
                 labels: threatsData.timeline.hours,
                 datasets: [
-                  { label: 'Attack', data: threatsData.timeline.attacks, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.08)', fill: true, tension: 0.4, pointRadius: 2, borderWidth: 2 },
-                  { label: 'Suspicious', data: threatsData.timeline.suspicious, borderColor: '#f59e0b', backgroundColor: 'rgba(245,158,11,0.06)', fill: true, tension: 0.4, pointRadius: 2, borderWidth: 2 },
+                  {
+                    label: 'Attacks',
+                    data: threatsData.timeline.attacks,
+                    borderColor: '#ef4444',
+                    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                    fill: true, tension: 0.4,
+                    pointRadius: 0, borderWidth: 2
+                  },
+                  {
+                    label: 'Suspicious',
+                    data: threatsData.timeline.suspicious,
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.05)',
+                    fill: true, tension: 0.4,
+                    pointRadius: 0, borderWidth: 2
+                  },
                 ]
               }}
               options={{
                 responsive: true, maintainAspectRatio: false,
-                plugins: { legend: { labels: { color: '#94a3b8', font: { size: 11 } } } },
+                plugins: { legend: { position: 'top', align: 'end', labels: { boxWidth: 8, usePointStyle: true, font: { weight: 600 } } } },
                 scales: {
-                  x: { ticks: { color: '#64748b', font: { size: 9 }, maxTicksLimit: 12 }, grid: { color: 'rgba(99,160,255,0.05)' } },
-                  y: { ticks: { color: '#64748b', font: { size: 10 } }, grid: { color: 'rgba(99,160,255,0.07)' } }
+                  x: { grid: { display: false }, ticks: { maxTicksLimit: 12 } },
+                  y: { grid: { color: '#f1f5f9' }, beginAtZero: true }
                 }
               }}
             />
