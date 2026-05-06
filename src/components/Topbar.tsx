@@ -66,4 +66,3 @@ export function Topbar({ activePage }: TopbarProps) {
     </div>
   );
 }
-

@@ -16,7 +16,7 @@ export const Login: React.FC<{ onToggleSignup: () => void }> = ({ onToggleSignup
     const sanitizedEmail = sanitize(email);
 
     if (!validateEmail(sanitizedEmail)) {
-      setError('Invalid email format');
+      setError('Please enter a valid email');
       return;
     }
 
@@ -47,12 +47,12 @@ export const Login: React.FC<{ onToggleSignup: () => void }> = ({ onToggleSignup
           <h2>Welcome Back</h2>
           <p className="auth-subtitle">Login to access your dashboard</p>
 
-          {error && <div className="auth-error">{error}</div>}
+          {error && <div className="auth-error" role="alert">{error}</div>}
 
           <div className="form-group">
             <label>Email Address</label>
             <input
-              type="email"
+              type="text"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@company.com"
