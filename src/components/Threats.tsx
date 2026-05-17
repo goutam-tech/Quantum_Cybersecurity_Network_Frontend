@@ -29,7 +29,7 @@ export function Threats() {
                 processedResults.push({
                   ip: ip,
                   level: levelKey,
-                  confidence: 1.0 // Defaulting to 1.0 since it's not in the API yet
+                  confidence: 0.5 
                 });
               });
             }

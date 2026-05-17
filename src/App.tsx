@@ -79,7 +79,6 @@ function AppContent() {
             {activePage === 'upload' && <Upload onAnalyzeComplete={() => setActivePage('dashboard')} />}
             {activePage === 'logs' && <Logs />}
             {activePage === 'threats' && <Threats />}
-            {/* {activePage === 'health' && <Health />} */}
           </div>
         </main>
       </div>
